@@ -1,0 +1,103 @@
+import type { Request, Response, NextFunction } from 'express';
+import { authService } from '../services/auth.service.js';
+import { createError } from './errorHandler.js';
+
+// Extend Express Request interface to include user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        email: string;
+        name: string;
+        role: string;
+        createdAt: Date;
+        updatedAt: Date;
+      };
+    }
+  }
+}
+
+// JWT Authentication Middleware
+export const authenticateToken = async (
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // Get token from Authorization header
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.substring(7) 
+      : null;
+
+    if (!token) {
+      throw createError('Access token is required', 401);
+    }
+
+    // Verify token
+    const payload = authService.verifyAccessToken(token);
+
+    // Get user from database
+    const user = await authService.getUserById(payload.userId);
+
+    if (!user) {
+      throw createError('User not found', 401);
+    }
+
+    // Attach user to request
+    req.user = user;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Optional authentication middleware (doesn't throw error if no token)
+export const optionalAuth = async (
+  req: Request, 
+  res: Response, 
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.substring(7) 
+      : null;
+
+    if (token) {
+      const payload = authService.verifyAccessToken(token);
+      const user = await authService.getUserById(payload.userId);
+      
+      if (user) {
+        req.user = user;
+      }
+    }
+    
+    next();
+  } catch (error) {
+    // For optional auth, we continue even if token is invalid
+    next();
+  }
+};
+
+// Role-based authorization middleware
+export const requireRole = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      return next(createError('Authentication required', 401));
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return next(createError('Insufficient permissions', 403));
+    }
+
+    next();
+  };
+};
+
+// Admin-only middleware
+export const requireAdmin = requireRole(['ADMIN']);
+
+// Moderator or Admin middleware
+export const requireModerator = requireRole(['ADMIN', 'MODERATOR']);
