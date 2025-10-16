@@ -87,7 +87,7 @@ export class NotificationController {
         throw createError('Authentication required', 401);
       }
 
-      const updatedCount = await notificationService.markAllAsRead(req.user.id);
+      const updatedCount = await notificationService.markAllRead(req.user.id);
 
       res.status(200).json({
         success: true,

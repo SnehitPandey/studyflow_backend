@@ -124,6 +124,9 @@ export class GroupingController {
       }
 
       const { userId } = req.params;
+      if (!userId) {
+        throw createError('User ID is required', 400);
+      }
 
       // Check permissions
       if (userId !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'MODERATOR') {

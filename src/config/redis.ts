@@ -1,19 +1,21 @@
-import Redis from 'ioredis';
+import IORedis from 'ioredis';
+import type { Redis as RedisType } from 'ioredis';
 import { env } from './env.js';
 import type { Logger } from 'pino';
 
 // This is the singleton instance
-let redisInstance: Redis | null = null;
+let redisInstance: RedisType | null = null;
 
 /**
  * Creates and returns a singleton Redis client instance.
  * Event listeners are attached only once.
  */
-export const connectToRedis = (logger?: Logger): Redis => {
+export const connectToRedis = (logger?: Logger): RedisType => {
   if (!redisInstance) {
-    // FIX: 'ioredis' is a default export, so this is the correct way to import and instantiate it.
-    const redis = new Redis(env.REDIS_URL, {
-      retryStrategy: (times) => Math.min(times * 50, 2000), // Standard retry strategy
+    // FIX: For ES modules, we need to access the default export properly
+    const RedisClient = IORedis.default || IORedis;
+    const redis = new (RedisClient as any)(env.REDIS_URL, {
+      retryStrategy: (times: number) => Math.min(times * 50, 2000), // Standard retry strategy
       maxRetriesPerRequest: 3,
       lazyConnect: true, // Recommended: connect explicitly
       password: env.REDIS_PASSWORD, // Pass password directly (it's ok if it's undefined)
@@ -40,7 +42,7 @@ export const connectToRedis = (logger?: Logger): Redis => {
     redisInstance = redis;
   }
 
-  return redisInstance;
+  return redisInstance as RedisType;
 };
 
 /**

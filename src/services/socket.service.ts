@@ -120,13 +120,38 @@ export class SocketService {
           });
 
           const chatQueue = getChatQueue();
-          await chatQueue.add('persistMessage', systemMessage);
+          if (chatQueue) {
+            await chatQueue.add('persistMessage', systemMessage);
+          } else {
+            // Fallback: directly save to DB if queue unavailable
+            const ChatMessage = (await import('../models/chatMessage.model.js')).ChatMessage;
+            await ChatMessage.create({
+              roomId: systemMessage.roomId,
+              userId: null,
+              content: systemMessage.message,
+              type: systemMessage.type as 'SYSTEM',
+              createdAt: new Date(systemMessage.timestamp),
+            });
+          }
           this.io.to(roomId).emit('roomUsers', presence);
 
-          const recentMessages = await roomService.getRoomMessages(roomId, 20);
-          socket.emit('chatHistory', recentMessages.reverse().map((msg: PopulatedMessage) => ({
-            id: msg.id,
-            username: msg.user.name,
+          // Get recent chat messages
+          const ChatMessage = (await import('../models/chatMessage.model.js')).ChatMessage;
+          const recentMessages = await ChatMessage.find({ roomId })
+            .populate('userId', 'name')
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .lean<Array<{
+              _id: string;
+              userId: { name: string } | null;
+              content: string;
+              type: 'TEXT' | 'SYSTEM' | 'EMOJI' | 'FILE';
+              createdAt: Date;
+            }>>();
+          
+          socket.emit('chatHistory', recentMessages.reverse().map((msg) => ({
+            id: msg._id.toString(),
+            username: msg.userId?.name ?? 'System',
             message: msg.content,
             type: msg.type,
             timestamp: msg.createdAt.toISOString(),

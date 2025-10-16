@@ -6,14 +6,14 @@ import { createError } from './errorHandler.js';
 import type { Request } from 'express';
 
 // Ensure upload directory exists
-const uploadDir = env.UPLOAD_DIR || './uploads';
+const uploadDir = env.UPLOAD_DIR;
 fs.ensureDirSync(uploadDir);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // Create subdirectories based on file type
-    const fileType = file.mimetype.split('/')[0]; // 'image', 'application', etc.
+    const fileType = file.mimetype.split('/')[0] || 'other'; // 'image', 'application', etc.
     const uploadPath = path.join(uploadDir, fileType);
     
     fs.ensureDirSync(uploadPath);

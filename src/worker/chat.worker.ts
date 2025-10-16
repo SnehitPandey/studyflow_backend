@@ -4,11 +4,13 @@ import { ChatMessage } from '../models/chatMessage.model.js';
 import { Room } from '../models/room.model.js';
 import { User } from '../models/user.model.js';
 import { createChatQueue, type ChatMessageJob } from '../config/queue.js';
-import pino from 'pino';
+import pinoImport from 'pino';
 import { env } from '../config/env.js';
 
+const pino = pinoImport.default || pinoImport;
+
 // Initialize logger
-const logger = pino({
+const logger = (pino as any)({
   level: env.LOG_LEVEL,
   ...(env.NODE_ENV === 'development' && {
     transport: {

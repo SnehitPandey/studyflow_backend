@@ -69,13 +69,13 @@ export class ChatController {
         .populate('userId', 'name')
         .sort({ createdAt: query.order === 'desc' ? -1 : 1 })
         .limit(query.limit + 1)
-        .lean<{
+        .lean<Array<{
           _id: string;
           userId: { _id: string; name: string } | null;
           content: string;
           type: 'TEXT' | 'SYSTEM' | 'EMOJI' | 'FILE';
           createdAt: Date;
-        }>();
+        }>>();
 
       const hasMore = messages.length > query.limit;
       if (hasMore) messages.pop();
@@ -85,12 +85,14 @@ export class ChatController {
       let prevCursor: string | null = null;
 
       if (messages.length > 0) {
-        nextCursor = hasMore && messages[messages.length - 1]?._id
-          ? messages[messages.length - 1]._id.toString() 
+        const lastMessage = messages[messages.length - 1];
+        nextCursor = hasMore && lastMessage?._id
+          ? lastMessage._id.toString() 
           : null;
         
-        prevCursor = query.cursor && messages[0]?._id
-          ? messages[0]._id.toString() 
+        const firstMessage = messages[0];
+        prevCursor = query.cursor && firstMessage?._id
+          ? firstMessage._id.toString() 
           : null;
       }
 
@@ -98,7 +100,7 @@ export class ChatController {
       const totalCount = await ChatMessage.countDocuments({ roomId });
 
       // Format response - fix username access with proper type checking
-      const formattedMessages = messages.map(msg => ({
+      const formattedMessages = messages.map((msg) => ({
         id: msg._id.toString(),
         userId: msg.userId?._id?.toString() ?? null,
         username: (msg.userId as any)?.name ?? 'System',  // Type assertion for populated field

@@ -213,8 +213,11 @@ export class RoomService {
 
     // If host leaves and there are other members, transfer host to first member
     if (room.hostId.toString() === userId && room.members.length > 0) {
-      room.hostId = room.members[0].userId;
-      room.members[0].role = 'HOST';
+      const firstMember = room.members[0];
+      if (firstMember) {
+        room.hostId = firstMember.userId;
+        firstMember.role = 'HOST';
+      }
     }
 
     // If no members left, mark room as completed

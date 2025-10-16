@@ -8,7 +8,7 @@ import { AuthService } from './services/auth.service.js';
 // --- SERVICE SINGLETONS ---
 // Initialize and export services here to ensure a single instance is used
 // throughout the application and to allow for dependency injection (like passing the logger).
-export const authService = new AuthService(logger);
+export const authService = new AuthService();
 logger.info('✅ AuthService initialized');
 
 
@@ -47,7 +47,7 @@ async function startServer(): Promise<void> {
     });
 
     // Initialize Socket.IO service
-    new SocketService(io, logger);
+    new SocketService(io as any, logger);
     logger.info('✅ Socket.IO server initialized');
 
     // Start server

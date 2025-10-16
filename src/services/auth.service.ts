@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { User, IUser } from '../models/user.model.js';
 import { Session, ISession } from '../models/session.model.js';
@@ -49,13 +49,17 @@ export class AuthService {
 
   // Generate JWT tokens
   private generateTokens(payload: TokenPayload): AuthTokens {
-    const accessToken = jwt.sign(payload, env.JWT_SECRET, {
-      expiresIn: env.JWT_ACCESS_TOKEN_EXPIRES_IN,
-      issuer: 'studyflow',
-      audience: 'studyflow-app',
-    });
+    const accessToken = (jwt.sign as any)(
+      payload, 
+      env.JWT_SECRET, 
+      {
+        expiresIn: env.JWT_ACCESS_TOKEN_EXPIRES_IN,
+        issuer: 'studyflow',
+        audience: 'studyflow-app',
+      }
+    );
 
-    const refreshToken = jwt.sign(
+    const refreshToken = (jwt.sign as any)(
       { userId: payload.userId },
       env.JWT_REFRESH_SECRET,
       {

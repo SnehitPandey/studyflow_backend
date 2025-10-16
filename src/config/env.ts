@@ -21,6 +21,13 @@ const envSchema = z.object({
   REDIS_URL: z.string().url('Invalid REDIS_URL format'),
   REDIS_PASSWORD: z.string().optional(),
   SOCKET_IO_CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
+  
+  // --- Cookie and Upload variables ---
+  COOKIE_SECRET: z.string().min(32, 'COOKIE_SECRET must be at least 32 characters long'),
+  UPLOAD_DIR: z.string().default('./uploads'),
+  
+  // --- OpenAI variables ---
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 // Validate and parse environment variables

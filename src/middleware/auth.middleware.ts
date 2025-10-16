@@ -46,7 +46,14 @@ export const authenticateToken = async (
     }
 
     // Attach user to request
-    req.user = user;
+    req.user = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
     next();
   } catch (error) {
     next(error);
@@ -70,7 +77,14 @@ export const optionalAuth = async (
       const user = await authService.getUserById(payload.userId);
       
       if (user) {
-        req.user = user;
+        req.user = {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        };
       }
     }
     

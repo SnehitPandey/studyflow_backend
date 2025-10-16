@@ -12,9 +12,9 @@
     "dev": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/workers/chat.worker.ts",
     "build": "tsc && npm run copy-assets",
-    "build:production": "NODE_ENV=production npm run build",
-    "copy-assets": "cp -r uploads dist/ 2>/dev/null || true",
-    "start": "node dist/server.ts",
+    "build:production": "cross-env NODE_ENV=production npm run build",
+    "copy-assets": "node ./scripts/copy-assets.js",
+    "start": "node dist/server.js",
     "start:worker": "node dist/workers/chat.worker.js",
     "start:production": "NODE_ENV=production node dist/server.js",
     "test": "jest",
@@ -26,7 +26,7 @@
     "format": "prettier --write src//*.{ts,json}",
     "format:check": "prettier --check src//*.{ts,json}",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "postinstall": "npm run build:production",
     "docker:build": "docker build -t studyflow-backend .",
@@ -101,7 +101,7 @@
     "slugify": "^1.6.6",
     "socket.io": "^4.7.2",
     "uuid": "^9.0.1",
-    "zod": "^3.22.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.0",

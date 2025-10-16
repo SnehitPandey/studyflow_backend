@@ -2,7 +2,9 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
-import pino from 'pino';
+import pinoImport from 'pino';
+
+const pino = pinoImport.default || pinoImport;
 
 import { env } from './config/env.js';
 import { connectToDatabase } from './config/db.js';
@@ -11,11 +13,11 @@ import { createChatQueue } from './config/queue.js';
 import { configureSecurityMiddleware } from './middleware/security.js';
 import { auditLogMiddleware } from './middleware/auditLog.js';
 import {
-  generalRateLimit,
-  authRateLimit,
-  aiRateLimit,
-  uploadRateLimit,
-} from './middleware/rateLimiter';
+  generalRateLimiter,
+  authRateLimiter,
+  aiRateLimiter,
+  uploadRateLimiter,
+} from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 import { healthRouter } from './routes/health.js';
@@ -30,7 +32,7 @@ import { channelRouter } from './routes/channel.routes.js';
 import { notificationRouter } from './routes/notification.routes.js';
 
 // Initialize logger
-export const logger = pino({
+export const logger = (pino as any)({
   level: env.LOG_LEVEL,
   ...(env.NODE_ENV === 'development' && {
     transport: {
@@ -46,9 +48,9 @@ export const logger = pino({
   }),
   ...(env.NODE_ENV === 'production' && {
     formatters: {
-      level: (label) => ({ level: label }),
+      level: (label: string) => ({ level: label }),
     },
-    timestamp: pino.stdTimeFunctions.isoTime,
+    timestamp: (pino as any).stdTimeFunctions.isoTime,
   }),
 });
 
@@ -175,24 +177,24 @@ const createApp = async (): Promise<Application> => {
   app.use('/db-check', dbCheckRouter);
 
   // API routes with specific rate limiting
-  app.use('/api/auth', authRateLimit, authRouter);
-  app.use('/api/notifications', generalRateLimit, notificationRouter);
-  app.use('/api/rooms', generalRateLimit, roomRouter);
-  app.use('/api/rooms', generalRateLimit, chatRouter); // Chat routes under /api/rooms/:roomId/messages
-  app.use('/api', generalRateLimit, taskRouter); // Task routes at /api/boards, /api/lists, /api/tasks
-  app.use('/api/ai', aiRateLimit, aiRouter); // AI routes with stricter limits
-  app.use('/api/ai', aiRateLimit, groupingRouter); // Grouping routes under /api/ai
-  app.use('/api/channels', uploadRateLimit, channelRouter); // Channel routes with upload limits
+  app.use('/api/auth', authRateLimiter, authRouter);
+  app.use('/api/notifications', generalRateLimiter, notificationRouter);
+  app.use('/api/rooms', generalRateLimiter, roomRouter);
+  app.use('/api/rooms', generalRateLimiter, chatRouter); // Chat routes under /api/rooms/:roomId/messages
+  app.use('/api', generalRateLimiter, taskRouter); // Task routes at /api/boards, /api/lists, /api/tasks
+  app.use('/api/ai', aiRateLimiter, aiRouter); // AI routes with stricter limits
+  app.use('/api/ai', aiRateLimiter, groupingRouter); // Grouping routes under /api/ai
+  app.use('/api/channels', uploadRateLimiter, channelRouter); // Channel routes with upload limits
 
   // Backward compatibility routes (without /api prefix)
-  app.use('/auth', authRateLimit, authRouter);
-  app.use('/notifications', generalRateLimit, notificationRouter);
-  app.use('/rooms', generalRateLimit, roomRouter);
-  app.use('/rooms', generalRateLimit, chatRouter);
-  app.use('/', generalRateLimit, taskRouter);
-  app.use('/ai', aiRateLimit, aiRouter);
-  app.use('/ai', aiRateLimit, groupingRouter);
-  app.use('/channels', uploadRateLimit, channelRouter);
+  app.use('/auth', authRateLimiter, authRouter);
+  app.use('/notifications', generalRateLimiter, notificationRouter);
+  app.use('/rooms', generalRateLimiter, roomRouter);
+  app.use('/rooms', generalRateLimiter, chatRouter);
+  app.use('/', generalRateLimiter, taskRouter);
+  app.use('/ai', aiRateLimiter, aiRouter);
+  app.use('/ai', aiRateLimiter, groupingRouter);
+  app.use('/channels', uploadRateLimiter, channelRouter);
 
   // API documentation route (if needed)
   app.get('/api', (req, res) => {

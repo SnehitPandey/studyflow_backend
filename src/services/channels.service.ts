@@ -214,6 +214,9 @@ export class ChannelService {
 
     // Return the created note
     const createdNote = channel.notes[channel.notes.length - 1];
+    if (!createdNote) {
+      throw createError('Failed to create note', 500);
+    }
     return createdNote;
   }
 
@@ -228,7 +231,7 @@ export class ChannelService {
       throw createError('Channel not found', 404);
     }
 
-    const note = channel.notes.find(n => n._id.toString() === noteId);
+    const note = channel.notes.find((n: any) => n._id.toString() === noteId);
     if (!note) {
       throw createError('Note not found', 404);
     }
@@ -255,7 +258,7 @@ export class ChannelService {
       throw createError('Channel not found or access denied', 404);
     }
 
-    const note = channel.notes.find(n => n._id.toString() === noteId);
+    const note = channel.notes.find((n: any) => n._id.toString() === noteId);
     if (!note) {
       throw createError('Note not found', 404);
     }
@@ -287,12 +290,15 @@ export class ChannelService {
       throw createError('Channel not found or access denied', 404);
     }
 
-    const noteIndex = channel.notes.findIndex(n => n._id.toString() === noteId);
+    const noteIndex = channel.notes.findIndex((n: any) => n._id.toString() === noteId);
     if (noteIndex === -1) {
       throw createError('Note not found', 404);
     }
 
     const note = channel.notes[noteIndex];
+    if (!note) {
+      throw createError('Note not found', 404);
+    }
 
     // Delete associated file if exists
     if (note.fileUrl && note.fileUrl.startsWith('/uploads/')) {
@@ -305,6 +311,35 @@ export class ChannelService {
     channel.updatedAt = new Date();
 
     await channel.save();
+  }
+
+  // Get notes for a channel with pagination
+  async getChannelNotes(channelId: string, page: number = 1, limit: number = 10): Promise<{
+    notes: INote[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    if (!Types.ObjectId.isValid(channelId)) {
+      throw createError('Invalid channel ID', 400);
+    }
+
+    const channel = await Channel.findById(channelId);
+    if (!channel) {
+      throw createError('Channel not found', 404);
+    }
+
+    const skip = (page - 1) * limit;
+    const notes = channel.notes.slice(skip, skip + limit);
+    const total = channel.notes.length;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      notes,
+      total,
+      page,
+      totalPages,
+    };
   }
 
   // Get teacher's channels

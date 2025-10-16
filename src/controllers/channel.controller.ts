@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { channelService, type CreateChannelData, type CreateNoteData, type UpdateChannelData, type UpdateNoteData } from '../services/channels.service.js';
+import type { INote } from '../models/channel.model.js';
 import { createError } from '../middleware/errorHandler.js';
 import { getFileUrl } from '../middleware/upload.js';
 
@@ -65,9 +66,8 @@ export class ChannelController {
           title: channel.title,
           description: channel.description,
           teacherId: channel.teacherId,
-          teacher: channel.teacher,
           isActive: channel.isActive,
-          notesCount: channel._count.notes,
+          notesCount: 0,
           createdAt: channel.createdAt.toISOString(),
           notes: [],
         },
@@ -98,8 +98,8 @@ export class ChannelController {
           id: channel.id,
           title: channel.title,
           description: channel.description,
-          teacher: channel.teacher,
-          notesCount: channel._count.notes,
+          teacherId: channel.teacherId,
+          notesCount: channel.notes?.length || 0,
           createdAt: channel.createdAt.toISOString(),
           updatedAt: channel.updatedAt.toISOString(),
         })),
@@ -114,6 +114,11 @@ export class ChannelController {
   async getChannelById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { channelId } = req.params;
+      
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
+      
       const channel = await channelService.getChannelById(channelId);
 
       res.status(200).json({
@@ -122,11 +127,11 @@ export class ChannelController {
           id: channel.id,
           title: channel.title,
           description: channel.description,
-          teacher: channel.teacher,
+          teacherId: channel.teacherId,
           isActive: channel.isActive,
-          notesCount: channel._count.notes,
-          notes: channel.notes.map(note => ({
-            id: note.id,
+          notesCount: channel.notes?.length || 0,
+          notes: channel.notes.map((note: INote) => ({
+            id: note._id.toString(),
             title: note.title,
             content: note.content ? note.content.substring(0, 200) + (note.content.length > 200 ? '...' : '') : null,
             hasFile: !!note.fileUrl,
@@ -151,6 +156,10 @@ export class ChannelController {
       }
 
       const { channelId } = req.params;
+      
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
 
       // Validate input
       const validationResult = updateChannelSchema.safeParse(req.body);
@@ -187,6 +196,11 @@ export class ChannelController {
       }
 
       const { channelId } = req.params;
+      
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
+      
       await channelService.deleteChannel(channelId, req.user.id);
 
       res.status(200).json({
@@ -206,6 +220,10 @@ export class ChannelController {
       }
 
       const { channelId } = req.params;
+      
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
 
       // Validate input
       const validationResult = createNoteSchema.safeParse(req.body);
@@ -241,8 +259,8 @@ export class ChannelController {
       res.status(201).json({
         success: true,
         note: {
-          id: note.id,
-          channelId: note.channelId,
+          id: note._id.toString(),
+          channelId: note.channelId.toString(),
           title: note.title,
           content: note.content,
           fileUrl: note.fileUrl,
@@ -261,14 +279,20 @@ export class ChannelController {
   // Get note by ID
   async getNoteById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { noteId } = req.params;
-      const note = await channelService.getNoteById(noteId);
+      const { channelId, noteId } = req.params;
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
+      if (!noteId) {
+        throw createError('Note ID is required', 400);
+      }
+      const note = await channelService.getNoteById(channelId, noteId);
 
       res.status(200).json({
         success: true,
         note: {
-          id: note.id,
-          channelId: note.channelId,
+          id: note._id.toString(),
+          channelId: note.channelId.toString(),
           title: note.title,
           content: note.content,
           fileUrl: note.fileUrl,
@@ -292,7 +316,13 @@ export class ChannelController {
         throw createError('Authentication required', 401);
       }
 
-      const { noteId } = req.params;
+      const { channelId, noteId } = req.params;
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
+      if (!noteId) {
+        throw createError('Note ID is required', 400);
+      }
 
       // Validate input
       const validationResult = updateNoteSchema.safeParse(req.body);
@@ -304,12 +334,12 @@ export class ChannelController {
       }
 
       const data: UpdateNoteData = validationResult.data;
-      const note = await channelService.updateNote(noteId, req.user.id, data);
+      const note = await channelService.updateNote(channelId, noteId, req.user.id, data);
 
       res.status(200).json({
         success: true,
         note: {
-          id: note.id,
+          id: note._id.toString(),
           title: note.title,
           content: note.content,
           isPublic: note.isPublic,
@@ -328,8 +358,14 @@ export class ChannelController {
         throw createError('Authentication required', 401);
       }
 
-      const { noteId } = req.params;
-      await channelService.deleteNote(noteId, req.user.id);
+      const { channelId, noteId } = req.params;
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
+      if (!noteId) {
+        throw createError('Note ID is required', 400);
+      }
+      await channelService.deleteNote(channelId, noteId, req.user.id);
 
       res.status(200).json({
         success: true,
@@ -360,7 +396,7 @@ export class ChannelController {
           title: channel.title,
           description: channel.description,
           isActive: channel.isActive,
-          notesCount: channel._count.notes,
+          notesCount: channel.notes?.length || 0,
           createdAt: channel.createdAt.toISOString(),
           updatedAt: channel.updatedAt.toISOString(),
         })),
@@ -374,6 +410,9 @@ export class ChannelController {
   async getChannelNotes(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { channelId } = req.params;
+      if (!channelId) {
+        throw createError('Channel ID is required', 400);
+      }
 
       // Validate query parameters
       const validationResult = paginationSchema.safeParse(req.query);
@@ -389,8 +428,8 @@ export class ChannelController {
 
       res.status(200).json({
         success: true,
-        notes: result.notes.map(note => ({
-          id: note.id,
+        notes: result.notes.map((note: INote) => ({
+          id: note._id.toString(),
           title: note.title,
           content: note.content,
           fileUrl: note.fileUrl,
@@ -400,7 +439,11 @@ export class ChannelController {
           createdAt: note.createdAt.toISOString(),
           updatedAt: note.updatedAt.toISOString(),
         })),
-        pagination: result.pagination,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          totalPages: result.totalPages,
+        },
       });
     } catch (error) {
       next(error);

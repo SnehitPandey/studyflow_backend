@@ -1,11 +1,25 @@
 import OpenAI from 'openai';
 import { kmeans } from 'ml-kmeans';
-import { cosineDistance } from 'ml-distance';
+import mlDistance from 'ml-distance';
 import { Embedding } from '../models/embedding.model.js';
 import { User } from '../models/user.model.js';
 import { env } from '../config/env.js';
 import { createError } from '../middleware/errorHandler.js';
 import type { Logger } from 'pino';
+
+// Handle ml-distance import
+const cosineDistance = (mlDistance as any).cosine || ((a: number[], b: number[]) => {
+  // Fallback implementation
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i]! * b[i]!;
+    normA += a[i]! * a[i]!;
+    normB += b[i]! * b[i]!;
+  }
+  return 1 - dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+});
 
 export interface UserProfile {
   skills: string;
@@ -111,10 +125,12 @@ export class GroupingService {
       // Prepare data for clustering
       const vectors = embeddings.map((e: any) => e.vector);
       const users = embeddings.map((e: any) => ({
-        userId: e.userId?._id?.toString() ?? e.userId,
+        userId: e.userId?._id?.toString() ?? e.userId ?? 'unknown',
         name: e.userId?.name ?? 'Unknown',
         email: e.userId?.email ?? 'unknown@email.com',
-      }));
+      })).filter((user): user is { userId: string; name: string; email: string } => 
+        user.userId !== 'unknown'
+      );
 
       // Determine number of clusters
       let numClusters: number;
@@ -143,7 +159,9 @@ export class GroupingService {
 
         if (memberIndices.length === 0) continue;
 
-        const members = memberIndices.map((index: number) => users[index]);
+        const members = memberIndices
+          .map((index: number) => users[index])
+          .filter((user): user is { userId: string; name: string; email: string } => user !== undefined);
 
         // Calculate average similarity within group
         let totalSimilarity = 0;
@@ -243,9 +261,9 @@ export class GroupingService {
         similarities[i] = [];
         for (let j = 0; j < embeddings.length; j++) {
           if (i === j) {
-            similarities[i][j] = 1;
+            similarities[i]![j] = 1;
           } else {
-            similarities[i][j] =
+            similarities[i]![j] =
               1 - cosineDistance((embeddings[i] as any).vector, (embeddings[j] as any).vector);
           }
         }
@@ -264,8 +282,11 @@ export class GroupingService {
         if (unvisited.length === 0) break;
 
         // Start with most similar unvisited pair or single user
-        const currentGroup = [unvisited[0]];
-        visited.add(unvisited[0]);
+        const firstUnvisited = unvisited[0];
+        if (firstUnvisited === undefined) break;
+        
+        const currentGroup: number[] = [firstUnvisited];
+        visited.add(firstUnvisited);
 
         // Add similar users to current group (up to desired size)
         const maxGroupSize =
@@ -282,8 +303,10 @@ export class GroupingService {
             if (visited.has(candidate)) continue;
 
             const avgSimilarity =
-              currentGroup.reduce((sum, member) => sum + similarities[member][candidate], 0) /
-              currentGroup.length;
+              currentGroup.reduce((sum, member) => {
+                const simRow = similarities[member];
+                return sum + (simRow ? simRow[candidate] ?? 0 : 0);
+              }, 0) / currentGroup.length;
 
             if (avgSimilarity > bestSimilarity) {
               bestSimilarity = avgSimilarity;
@@ -307,8 +330,11 @@ export class GroupingService {
         if (currentGroup.length > 1) {
           for (let i = 0; i < currentGroup.length; i++) {
             for (let j = i + 1; j < currentGroup.length; j++) {
-              if (currentGroup[i] !== undefined && currentGroup[j] !== undefined) {
-                totalSimilarity += similarities[currentGroup[i]][currentGroup[j]];
+              const memberI = currentGroup[i];
+              const memberJ = currentGroup[j];
+              if (memberI !== undefined && memberJ !== undefined) {
+                const simRow = similarities[memberI];
+                totalSimilarity += simRow ? (simRow[memberJ] ?? 0) : 0;
               }
               pairCount++;
             }
@@ -319,7 +345,10 @@ export class GroupingService {
 
         groups.push({
           groupId: groupId++,
-          members: currentGroup.filter((index): index is number => index !== undefined).map((index: number) => users[index]),
+          members: currentGroup
+            .filter((index): index is number => index !== undefined)
+            .map((index: number) => users[index])
+            .filter((user): user is { userId: string; name: string; email: string } => user !== undefined),
           similarity: Math.round(avgSimilarity * 100) / 100,
         });
       }

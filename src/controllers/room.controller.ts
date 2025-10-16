@@ -37,7 +37,7 @@ export class RoomController {
           hostId: room.hostId,
           status: room.status,
           maxSeats: room.maxSeats,
-          memberCount: room._count.roomMembers,
+          memberCount: room.members.length,
           createdAt: room.createdAt,
         },
       });
@@ -76,10 +76,10 @@ export class RoomController {
           hostId: room.hostId,
           status: room.status,
           maxSeats: room.maxSeats,
-          memberCount: room._count.roomMembers,
-          members: room.roomMembers.map(member => ({
-            id: member.user.id,
-            name: member.user.name,
+          memberCount: room.members.length,
+          members: room.members.map((member: any) => ({
+            id: member.userId?.toString() || '',
+            name: member.user?.name || 'Unknown',
             role: member.role,
             ready: member.ready,
             joinedAt: member.joinedAt,
@@ -106,6 +106,9 @@ export class RoomController {
       }
 
       const { roomId } = req.params;
+      if (!roomId) {
+        throw createError('Room ID is required', 400);
+      }
 
       await roomService.leaveRoom(req.user.id, roomId);
 
@@ -122,7 +125,10 @@ export class RoomController {
   async getRoomById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { roomId } = req.params;
-      const userId = req.user?.id;
+      if (!roomId) {
+        throw createError('Room ID is required', 400);
+      }
+      const userId = req.user?.id || '';
 
       const room = await roomService.getRoomById(roomId, userId);
 
@@ -135,10 +141,10 @@ export class RoomController {
           hostId: room.hostId,
           status: room.status,
           maxSeats: room.maxSeats,
-          memberCount: room._count.roomMembers,
-          members: room.roomMembers.map(member => ({
-            id: member.user.id,
-            name: member.user.name,
+          memberCount: room.members.length,
+          members: room.members.map((member: any) => ({
+            id: member.userId?.toString() || '',
+            name: member.user?.name || 'Unknown',
             role: member.role,
             ready: member.ready,
             joinedAt: member.joinedAt,
@@ -159,6 +165,9 @@ export class RoomController {
       }
 
       const { roomId } = req.params;
+      if (!roomId) {
+        throw createError('Room ID is required', 400);
+      }
 
       const ready = await roomService.toggleReady(req.user.id, roomId);
 
